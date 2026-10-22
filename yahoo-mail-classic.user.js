@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Yahoo Mail Classic Fix - Unread You Can Actually See + No Ads
 // @namespace    grandvalley.yahoomailfix
-// @version      3.0.0
-// @description  Makes unread mail unmistakable (whole-row tint + purple left bar + bold, in light AND dark mode), mutes read mail, hides ads including sponsored rows inside the list, and brings back the old Yahoo Mail Classic list feel. Works on mail.yahoo.com.
+// @version      3.4.1
+// @description  Makes unread mail unmistakable (whole-row tint + purple left bar + bold, in light AND dark mode), mutes read mail, hides ads including sponsored rows inside the list, puts a clean unread-count badge on the Inbox nav icon, and brings back the old Yahoo Mail Classic list feel. Works on mail.yahoo.com.
 // @author       Gus for Westin
 // @match        https://mail.yahoo.com/*
 // @match        https://*.mail.yahoo.com/*
@@ -14,6 +14,105 @@
 // ==/UserScript==
 
 /*
+  v3.2.0 (same day, Westin's live test of v3.1.1 + screenshot):
+  singleton fix held (exactly one tab) and the badge showed, but
+  three things were still wrong, all visible in his crop:
+  (1) the badge NUMBER WAS CLIPPED at the top - the badge had been
+  anchored to an INNER element of Yahoo's tab, inside a pill that
+  clips its contents; (2) our inserted tab landed at that same
+  wrong inner depth (a stray mini-icon ended up trapped inside
+  the Inbox pill, shoving the "Inbox" label down); (3) our own
+  tab element looked dim/small next to Yahoo's tabs and clicking
+  it did nothing - Westin: "we have to use their unread tab... it
+  needs to look exactly like yahoo's original unread icon."
+  v3.2.0 fixes the depth and takes his direction literally:
+  - Everything nav-related now anchors to the tab's OUTER ROW -
+    the direct child of the list that holds Inbox/Sent/Drafts -
+    found by climbing from the matched element to the list child
+    (railTabOf). The badge wraps the icon inside that row, every
+    in-tab ancestor of the icon gets overflow:visible, and the
+    badge tucks in (-6px instead of -9px) so nothing clips it.
+  - The promoted Unread tab IS Yahoo's own menu element, MOVED
+    (transplanted) from the "..." menu into the rail after Inbox:
+    their node, their exact icon glyph, their click behaviour -
+    we only re-flow it into a column (icon over label, count leaf
+    hidden). If Yahoo's item has never been mounted (menu never
+    opened), a placeholder stands in; clicking it opens the
+    "..." menu (the More control is now searched much more
+    broadly, any element in the rail), and the instant Yahoo's
+    item appears it is transplanted into the rail AND clicked -
+    so the first click already lands on the Unread view, and
+    every later click is Yahoo's own tab doing its own job.
+  Same version, Westin's follow-ups (13:32 MDT): (a) Mail Plus -
+  he asked to "unlock all the mail plus features and get rid of
+  those buttons". The buttons go: hideUpsells removes Go ad-free /
+  Try Mail Plus CTAs, the Yahoo Mail Plus menu entry, and paywall
+  empty-state cards. The unlock does NOT happen, and cannot: Plus
+  entitlement is checked on Yahoo's servers before the feature is
+  served, so no page script can grant it - anyone's script that
+  claims otherwise is hiding the sign, not opening the door.
+  (b) Ads still showing on the Drafts page: ad cleanup broadened
+  beyond the inbox - leaderboard/Taboola/GPT/right-rail slots are
+  now tagged by name on every view, and the iframe net widened.
+
+  v3.1.1 (same day, Westin's live test of v3.1.0): the badge worked
+  (his screenshot shows the purple "2" on the Inbox icon) BUT the
+  promoted Unread tab kept multiplying down the rail - dozens of
+  identical tabs. Root cause, two flaws in v3.1.0's build: (1) the
+  tab was a cloneNode of Yahoo's Inbox tab, so it carried Yahoo's
+  own framework classes/attributes and Yahoo's rail code treated
+  the clone as one of its own managed children to re-render;
+  (2) the "already have one?" check was scoped to a computed rail
+  root instead of the whole document, and nothing ever REMOVED a
+  duplicate. v3.1.1 rebuilds the promotion defensively: the tab is
+  now our own element carrying ONLY gv classes (styled to match
+  the rail: icon over label, same soft pill), the script tracks
+  the one node it built by identity, every run sweeps away any
+  other element carrying our marker anywhere in the document
+  (including leftovers from the buggy build), and a runaway brake
+  stops re-insertion entirely if Yahoo wipes the tab more than
+  3 times in 10 seconds. Exactly one Unread tab can ever exist.
+
+  v3.1.0 (2026-10-22, Westin: "I want the inbox nav icon to show how
+  many unread emails there are... professional and clean but still
+  noticeable"): NEW - unread-count badge ON the Inbox icon in the
+  left folder nav. A small Yahoo-purple (#6001d2, the same purple as
+  the UNREAD row pill) pill sits on the icon's top-right corner:
+  white bold number, thin ring in the nav's surface colour so it
+  separates cleanly from the icon, soft shadow. 1 digit = circle,
+  2 digits = pill, over 99 = "99+" (the exact count stays in the
+  badge's tooltip). No badge at zero - a clean icon means caught up.
+  Same version, Westin's screenshot + follow-up (12:18 MDT): the
+  left nav is an ICON RAIL (compose, Inbox, Sent, Drafts, Trash,
+  Spam, Folders, then a "..." overflow button), and Yahoo buries
+  the Unread view inside that "..." menu, with its own little "2"
+  beside it. So v3.1 also MOVES UNREAD UP: a new Unread tab in the
+  main icon rail, directly under Inbox, built by cloning Yahoo's
+  own Inbox tab so it inherits the rail's real styling, with the
+  label swapped to "Unread" and Yahoo's envelope-with-dot glyph.
+  Per Westin the promoted tab carries NO number - the count lives
+  on the Inbox icon only - and the original Unread entry is hidden
+  out of the "..." menu (it has been moved, not duplicated).
+  Clicking the rail tab activates Yahoo's REAL Unread menu item
+  (its href is harvested and cached the first time the menu is
+  seen; if the item is not in the DOM because the menu is closed,
+  the click opens the menu and clicks through the instant the item
+  appears). The script never guesses the Unread view's URL.
+  COUNT SOURCE, in order: (1) the Inbox nav item itself - Yahoo's
+  own count leaf / "Inbox (n)" text / an aria-label like "Inbox, 12
+  unread" - and when Yahoo shows that count as plain text next to
+  the label we hide our copy of it (gv-nav-native-count) so the
+  number appears exactly once, on the icon; (2) the document title,
+  which Yahoo prefixes with the unread total, e.g. "(12) ...".
+  Deliberately NEVER counted: the message rows on screen. The list
+  is virtualised, so visible rows are only a window onto the inbox
+  and counting them would under-report the real total. If no total
+  can be found, no badge is shown rather than a wrong number.
+  Per-folder items have no published stable data-test-id (see the
+  2026-10-22 selector research), so the Inbox item is found inside
+  the known left-rail containers by href / aria-label / link text -
+  never by Yahoo's hashed atomic classes.
+
   v2.0.0 - WHAT WAS WRONG WITH v1 (from Westin's screenshot, 2026-10-22):
   Every row turned purple. Cause: v1 searched ALL descendants of a row for
   the word "unread" - and every row, read or not, contains a hidden action
@@ -85,6 +184,11 @@
     // lavender strip with dark text on the dark UI (default). 'ring' =
     // rows stay dark but unread gets a bright lavender outline + tint.
     darkMethod: 'strip',
+    showInboxBadge: true,    // v3.1: unread-count badge on the Inbox nav icon
+    inboxBadgeCap: 99,       // counts above this display as "99+"
+    promoteUnread: true,     // v3.1: move Unread out of the "..." menu into the main icon rail (no count on it - the Inbox badge carries the number)
+    hideUpsells: true,       // v3.2: hide Mail Plus upsell buttons/prompts (Go ad-free, Try Mail Plus, paywall cards). Cosmetic only - Plus features themselves are checked on Yahoo's servers and cannot be unlocked by a script.
+    modernExpandedNav: true, // v3.4: modern skin for the EXPANDED side nav only (hidden scrollbar, pill rows). Scoped to [data-test-id="expanded-left-rail"] - the collapsed rail is never touched by it.
   };
 
   /* ============================== CSS ============================== */
@@ -100,6 +204,7 @@
     --gv-badge-bg: #6001d2;
     --gv-badge-fg: #ffffff;
     --gv-unread-ring: transparent;
+    --gv-nav-badge-ring: #ffffff;
   }
   /* Dark method v3.0 - "pale strip" (Westin: the grey-purple tint was
      both hard to see AND grey/muddy). The numbers said why: the old
@@ -131,6 +236,7 @@
     --gv-row-border: #3a3a41;
     --gv-badge-bg: #6001d2;
     --gv-badge-fg: #ffffff;
+    --gv-nav-badge-ring: #1c1c21;
   }
   html.gv-dark.gv-ring {
     --gv-unread-bg: #2b2640;
@@ -173,6 +279,89 @@
     vertical-align: middle;
     pointer-events: none;
     white-space: nowrap;
+  }
+
+  /* FOLDER CHIP inside an unread row (v3.4.1): Yahoo's folder tag
+     ("Inbox", "Sent", ...) is a dark pill with light letters. The
+     unread strip forces the strip's dark text colour on EVERY
+     descendant, which erased the chip's letters - the pill rendered
+     as a big black mark (Westin live report 2026-10-22; probe
+     confirmed the leaf computing to the strip colour on a
+     rgb(19,19,19) parent). tagRowChips() tags such pills with
+     .gv-row-chip (detected by computed background, never by
+     Yahoo's hashed classes); this rule restores light letters on
+     the pill while the pill keeps Yahoo's own dark background. */
+  .gv-unread .gv-row-chip,
+  .gv-unread .gv-row-chip * { color: #ffffff !important; }
+
+  /* INBOX NAV BADGE (v3.1) - the unread count, on the Inbox icon in
+     the left folder nav. Design notes: Yahoo purple is the brand
+     signal this script already uses for unread (row bar + UNREAD
+     pill), so the badge reads as "unread" without shouting like an
+     alarm-red dot; it stays noticeable because of placement (it
+     breaks the icon's outline at its top-right corner), the white
+     bold numeral, and a 2px ring in the nav surface colour plus a
+     soft shadow, which lift it off any icon in light AND dark navs.
+     Absolutely positioned, so the nav layout never shifts. */
+  /* INBOX NAV BADGE host (v3.3): the badge is a child of the
+     tab's ROW (the li), positioned by measured offsets at the
+     button's top-right corner. Yahoo's button internals are never
+     wrapped, moved or added to - v3.1/v3.2 wrapped the svg, which
+     broke Yahoo's show/hide CSS for the tab's two state icons and
+     BOTH rendered at once (Westin's "stacked icons", 2026-10-22,
+     confirmed in his real rail DOM dump). */
+  .gv-badge-host {
+    position: relative !important;
+  }
+  /* Promoted Unread rail tab (v3.3): a sanitized clone of Yahoo's
+     own Inbox li - their structure and classes, so it looks
+     exactly like their tabs - re-glyphed with Yahoo's own Unread
+     path data. Yahoo's nodes are never moved or transplanted:
+     the menu item is React-owned, and moving it corrupted the
+     rail in v3.2. Clicking the clone clicks Yahoo's real menu
+     item by its stable id (see activateUnread). */
+  .gv-unread-tab {
+    cursor: pointer !important;
+  }
+  .gv-unread-tab-active {
+    font-weight: 700 !important;
+  }
+  .gv-nav-badge {
+    position: absolute !important;
+    z-index: 6 !important;
+    box-sizing: border-box !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    padding: 0 5px !important;
+    border-radius: 999px !important;
+    background: var(--gv-badge-bg) !important;
+    color: var(--gv-badge-fg) !important;
+    font: 700 11px/18px Arial, Helvetica, sans-serif !important;
+    letter-spacing: 0 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+    box-shadow: 0 0 0 2px var(--gv-nav-badge-ring),
+                0 1px 4px rgba(0, 0, 0, 0.35) !important;
+  }
+  /* "99+" needs the same height in a slightly smaller numeral. */
+  .gv-nav-badge.gv-nav-badge-capped {
+    font-size: 10px !important;
+    padding: 0 4px !important;
+  }
+  /* Fallback when no icon-sized holder exists in the item: anchor
+     the badge to the item's own top-left, beside where the icon
+     would be, instead of floating it over the label text. */
+  /* Yahoo's own plain-text count next to the Inbox label: hidden
+     ONLY once our badge is showing the same number on the icon, so
+     the count is never displayed twice. */
+  .gv-nav-native-count {
+    display: none !important;
+  }
+  /* Unread in the nav also bolds the Inbox label - the Classic
+     folder pane did exactly this (Inbox (n), bold). */
+  .gv-nav-has-unread {
+    font-weight: 700 !important;
   }
 
   /* READ */
@@ -219,6 +408,50 @@
     margin-bottom: 0 !important;
     border: 0 !important;
     overflow: hidden !important;
+  }
+  /* EXPANDED NAV MODERN SKIN (v3.4) - every selector is fenced
+     under html.gv-modern-expanded AND the expanded container, so
+     the collapsed icon rail (a different container, confirmed
+     good by Weston 2026-10-22 - "do not mess with it") cannot be
+     affected by any rule here. Treatment: the folder list keeps
+     scrolling but its scrollbar is hidden, freeing the width the
+     bar ate; rows become inset rounded pills with a soft hover;
+     the current folder gets a filled purple-tint pill with a
+     purple edge bar; Yahoo's own count badge (which exists only
+     in this mode) is recoloured to the same Yahoo purple as the
+     collapsed badge, so the count reads once and on brand. */
+  html.gv-modern-expanded [data-test-id="expanded-left-rail"] [data-test-id="navigable-list"] {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  html.gv-modern-expanded [data-test-id="expanded-left-rail"] [data-test-id="navigable-list"]::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+  html.gv-modern-expanded [data-test-id="expanded-left-rail"] [data-test-id="navigable-list"] > li {
+    padding: 1px 8px !important;
+  }
+  html.gv-modern-expanded [data-test-id="expanded-left-rail"] [data-test-id="menu-list-item"] {
+    border-radius: 10px !important;
+    transition: background-color 120ms ease !important;
+  }
+  html.gv-modern-expanded [data-test-id="expanded-left-rail"] [data-test-id="menu-list-item"]:hover {
+    background-color: rgba(148, 148, 175, 0.14) !important;
+  }
+  html.gv-modern-expanded [data-test-id="expanded-left-rail"] [data-test-id="menu-list-item"]:has(> a[aria-label^="Selected"]) {
+    background-color: rgba(124, 77, 255, 0.20) !important;
+    box-shadow: inset 3px 0 0 0 #6001d2 !important;
+  }
+  html.gv-modern-expanded [data-test-id="expanded-left-rail"] [data-test-id="menu-list-item"]:has(> a[aria-label^="Selected"]) a {
+    font-weight: 700 !important;
+  }
+  html.gv-modern-expanded [data-test-id="expanded-left-rail"] [data-test-id="badge"] > span {
+    background-color: #6001d2 !important;
+    color: #ffffff !important;
+    border-radius: 999px !important;
+    padding: 1px 8px !important;
+    font-weight: 700 !important;
   }
   `;
 
@@ -456,6 +689,463 @@
     }
   }
 
+  /* ================= INBOX NAV BADGE (v3.1) =================
+     The count is Yahoo's total for the Inbox, never a count of the
+     rows currently on screen (the list is virtualised - see the
+     v3.1.0 note at the top). Sources, in order: the Inbox nav item's
+     own count leaf / "(n)" / unread aria-label, then the document
+     title's "(n)" prefix. No source = no badge, never a guess.     */
+
+  function parseCountNumber(raw) {
+    if (raw === null || raw === undefined) return null;
+    const m = String(raw).replace(/,/g, '').match(/\d+/);
+    if (!m) return null;
+    const n = parseInt(m[0], 10);
+    return isNaN(n) ? null : n;
+  }
+
+  // A leaf whose whole text is a bare count: "12", "(12)" or "99+".
+  // Yahoo paints the folder count as exactly such a leaf.
+  function bareCountLeaf(item) {
+    let found = null;
+    item.querySelectorAll('*').forEach((el) => {
+      if (found || el.children.length) return;
+      if (el.classList && el.classList.contains('gv-nav-badge')) return;
+      const t = (el.textContent || '').trim();
+      if (/^\(?\d[\d,]*\+?\)?$/.test(t)) found = el;
+    });
+    return found;
+  }
+
+  // "12 unread" / "unread: 12" phrasing, or a parenthesised "(12)".
+  function countFromLabel(text) {
+    if (!text) return null;
+    const t = String(text);
+    let m = t.match(/(\d[\d,]*)\s*\+?\s*(?:unread|new)\b/i);
+    if (m) return parseCountNumber(m[1]);
+    m = t.match(/\(\s*(\d[\d,]*)\s*\+?\s*\)/);
+    if (m) return parseCountNumber(m[1]);
+    return null;
+  }
+
+  function inboxUnreadCount(item) {
+    if (item) {
+      const leaf = bareCountLeaf(item);
+      if (leaf) {
+        const n = parseCountNumber(leaf.textContent);
+        if (n !== null) return { count: n, nativeLeaf: leaf };
+      }
+      const labelled = [item].concat(
+        Array.from(item.querySelectorAll('[aria-label]')));
+      for (const el of labelled) {
+        const n = countFromLabel(el.getAttribute && el.getAttribute('aria-label'));
+        if (n !== null) return { count: n, nativeLeaf: leaf };
+      }
+      const fromText = countFromLabel(item.textContent);
+      if (fromText !== null) return { count: fromText, nativeLeaf: leaf };
+      // Last item-local shape: the label with a bare trailing total,
+      // "Inbox 12" (Classic's "Inbox (n)" without the parentheses).
+      const stripped = (item.textContent || '').trim().replace(/^inbox\b/i, '').trim();
+      if (/^\d[\d,]*\+?$/.test(stripped)) {
+        const n = parseCountNumber(stripped);
+        if (n !== null) return { count: n, nativeLeaf: leaf };
+      }
+    }
+    // Global fallback: Yahoo prefixes the tab title with the unread
+    // total, e.g. "(12) Inbox - Yahoo Mail", on every folder view.
+    const fromTitle = countFromLabel(document.title);
+    if (fromTitle !== null) return { count: fromTitle, nativeLeaf: null };
+    return null;
+  }
+
+  /* Finding the Inbox item: the collapsed rail's folder buttons
+     DO carry stable data-test-ids (left-rail-Inbox-icon and
+     friends - verified on Westin's real mailbox, 2026-10-22), so
+     that is the fast path. The heuristic search of the known
+     left-rail containers (match by href / aria-label / link text)
+     remains as a fallback for other layouts. Hashed atomic
+     classes are never used. */
+  const NAV_ROOT_SELECTORS = [
+    '#novation-left-rail',
+    '[data-test-id="left-rail-scrolling-container"]',
+    '[data-test-id*="left-rail" i]',
+    '[data-test-id*="folder-list" i]',
+    '[data-test-id*="folder-nav" i]',
+    'nav[aria-label*="folder" i]',
+  ];
+
+  function isInboxCandidate(el) {
+    // Never mistake our own promoted Unread tab for the Inbox tab
+    // (its harvested href can legitimately contain "/inbox").
+    if (el.closest && el.closest('[data-gv-unread-tab], .gv-rail-unread')) return false;
+    const href = (el.getAttribute && el.getAttribute('href')) || '';
+    if (/\/(inbox|folders?\/inbox|folders?\/1)(\/|\?|#|$)/i.test(href) ||
+        /[?&#](folder|mbox)=inbox\b/i.test(href)) return true;
+    const label = ((el.getAttribute && el.getAttribute('aria-label')) || '').trim();
+    if (/^inbox\b/i.test(label)) return true;
+    const tid = (el.getAttribute && el.getAttribute('data-test-id')) || '';
+    if (/\binbox\b/i.test(tid)) return true;
+    // Link text starting "Inbox" with a short total length - folder
+    // rows are short; message rows and smart-tab labels are not
+    // folder rows (and the tabs live outside the nav anyway).
+    const text = (el.textContent || '').trim();
+    if (/^inbox\b/i.test(text) && text.length <= 24) return true;
+    return false;
+  }
+
+  function findInboxNavItem() {
+    const byTestId = document.querySelector(
+      '[data-test-id="left-rail-Inbox-icon"]');
+    if (byTestId) return byTestId;
+    const roots = [];
+    for (const sel of NAV_ROOT_SELECTORS) {
+      document.querySelectorAll(sel).forEach((el) => roots.push(el));
+    }
+    const scopes = roots.length ? roots : [document];
+    for (const scope of scopes) {
+      const candidates = scope.querySelectorAll(
+        'a, button, [role="link"], [role="treeitem"], [role="option"], li');
+      for (const el of candidates) {
+        if (!isInboxCandidate(el)) continue;
+        if (!roots.length) {
+          // Whole-document fallback: insist the item really sits in
+          // the nav strip - left edge of the window, nav-sized width.
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.width > 440 ||
+              r.left > window.innerWidth * 0.3) continue;
+        }
+        return el;
+      }
+    }
+    return null;
+  }
+
+  function railRootOf(el) {
+    return (el && el.closest &&
+      el.closest('#novation-left-rail, [data-test-id*="left-rail" i]')) || document;
+  }
+
+  /* The tab's OUTER ROW (v3.2.0): findInboxNavItem can match an
+     element INSIDE Yahoo's tab (an inner button/span), and v3.1
+     anchored the badge and inserted the Unread tab at that inner
+     depth - badge clipped by the pill, stray icon inside the pill.
+     The row is the direct child of the tab LIST: climb from the
+     match while the current node's parent is NOT yet the container
+     holding several folder tabs; the node whose parent holds >= 3
+     tab-labelled children is the row. */
+  function railTabOf(el, railRoot) {
+    if (!el) return null;
+    const tabText = /^(inbox|sent|drafts|trash|spam|folders|unread|starred|archive)\b/i;
+    let node = el;
+    for (let i = 0; i < 6 && node.parentElement; i++) {
+      if (node === railRoot) break;
+      const p = node.parentElement;
+      let tabKids = 0;
+      for (const c of p.children) {
+        if (tabText.test((c.textContent || '').trim())) tabKids++;
+      }
+      if (tabKids >= 3 || p === railRoot) return node;
+      node = p;
+    }
+    return node;
+  }
+
+  /* The tab's OUTER ROW: in the real rail (captured from
+     Westin's mailbox, 2026-10-22) the folder tabs are
+     ul > li > button, the button carrying the stable test id.
+     The row everything anchors to is the li. */
+  function navRowOf(el) {
+    if (!el) return null;
+    if (el.tagName === 'LI') return el;
+    const li = el.closest && el.closest('li');
+    if (li && li.parentElement && li.parentElement.tagName === 'UL') {
+      return li;
+    }
+    return railTabOf(el, railRootOf(el));
+  }
+
+  /* Repair damage left by v3.1/v3.2 in an already-open tab: those
+     versions WRAPPED Yahoo's Inbox svg in a span, which broke
+     Yahoo's own show/hide CSS for the tab's two state icons - both
+     rendered at once ("stacked icons"). Unwrap, restoring Yahoo's
+     svg as a direct child of its button exactly where it was, and
+     drop any badge that ended up inside a button. */
+  function repairRailDamage() {
+    document.querySelectorAll('.gv-nav-icon-wrap').forEach((wrap) => {
+      const parent = wrap.parentElement;
+      if (!parent) return;
+      Array.from(wrap.childNodes).forEach((node) => {
+        if (node.nodeType === 1 && node.classList &&
+            node.classList.contains('gv-nav-badge')) return;
+        parent.insertBefore(node, wrap);
+      });
+      wrap.remove();
+    });
+    document.querySelectorAll(
+      'button .gv-nav-badge, a .gv-nav-badge').forEach((b) => b.remove());
+    document.querySelectorAll('.gv-of-visible').forEach((el) => {
+      el.classList.remove('gv-of-visible');
+    });
+  }
+
+  // Which nav is Yahoo showing? The two modes are different
+  // containers with different rules: collapsed = icon rail (our
+  // badge + promoted Unread live there); expanded = wide list
+  // (Yahoo shows Unread AND a count badge natively, so both of
+  // our additions must stay out - they would only duplicate).
+  function navIsExpanded() {
+    return !!document.querySelector(
+      '[data-test-id="expanded-left-rail"]');
+  }
+
+  function syncInboxBadge() {
+    if (!CONFIG.showInboxBadge) return;
+    repairRailDamage();
+    if (navIsExpanded()) {
+      document.querySelectorAll('.gv-nav-badge')
+        .forEach((b) => b.remove());
+      document.querySelectorAll('.gv-nav-has-unread, .gv-badge-host')
+        .forEach((el) => {
+          el.classList.remove('gv-nav-has-unread');
+          el.classList.remove('gv-badge-host');
+        });
+      return;
+    }
+    const item = findInboxNavItem();
+    const row = item ? (navRowOf(item) || item) : null;
+    const found = item ? inboxUnreadCount(item) : null;
+    const count = found ? found.count : null;
+
+    if (!row || count === null || count <= 0) {
+      document.querySelectorAll('.gv-nav-badge').forEach((b) => b.remove());
+      document.querySelectorAll('.gv-nav-has-unread, .gv-badge-host')
+        .forEach((el) => {
+          el.classList.remove('gv-nav-has-unread');
+          el.classList.remove('gv-badge-host');
+        });
+      document.querySelectorAll('.gv-nav-native-count').forEach((el) => {
+        el.classList.remove('gv-nav-native-count');
+      });
+      return;
+    }
+
+    if (!row.classList.contains('gv-badge-host')) {
+      row.classList.add('gv-badge-host');
+    }
+    if (!row.classList.contains('gv-nav-has-unread')) {
+      row.classList.add('gv-nav-has-unread');
+    }
+    // The badge hangs on the ROW (the li), never inside Yahoo's
+    // button: nothing is wrapped, moved or added in there, so
+    // Yahoo's icon state CSS keeps working untouched.
+    let badge = null;
+    Array.from(row.children).forEach((c) => {
+      if (c.classList && c.classList.contains('gv-nav-badge')) badge = c;
+    });
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'gv-nav-badge';
+      badge.setAttribute('aria-hidden', 'true');
+      row.appendChild(badge);
+    }
+    document.querySelectorAll('.gv-nav-badge').forEach((b) => {
+      if (b !== badge) b.remove();
+    });
+    // Pin it to the button's top-right corner, measured: the row
+    // is wider than the pill, so the offsets are computed from the
+    // real boxes and clamped inside the row - nothing clips it.
+    const btn = (item.tagName === 'BUTTON' || item.tagName === 'A')
+      ? item : row.querySelector('button, a');
+    if (btn) {
+      const br = btn.getBoundingClientRect();
+      const rr = row.getBoundingClientRect();
+      if (br.width > 0 && rr.width > 0) {
+        const top = Math.max(0, Math.round(br.top - rr.top - 7)) + 'px';
+        const right = Math.max(0, Math.round(rr.right - br.right - 7)) + 'px';
+        if (badge.style.top !== top) badge.style.top = top;
+        if (badge.style.right !== right) badge.style.right = right;
+      }
+    }
+    const cap = CONFIG.inboxBadgeCap || 99;
+    const display = count > cap ? cap + '+' : String(count);
+    if (badge.textContent !== display) badge.textContent = display;
+    const capped = count > cap;
+    if (badge.classList.contains('gv-nav-badge-capped') !== capped) {
+      badge.classList.toggle('gv-nav-badge-capped', capped);
+    }
+    const tip = count === 1
+      ? '1 unread email in your Inbox'
+      : count + ' unread emails in your Inbox';
+    if (badge.title !== tip) badge.title = tip;
+    // The same number as plain text beside the label would
+    // duplicate the badge - hide Yahoo's leaf now that the icon
+    // carries it. (The collapsed rail has no such leaf; the tab
+    // title is the count source there.)
+    const leaf = found.nativeLeaf;
+    if (leaf && leaf !== badge &&
+        !leaf.classList.contains('gv-nav-native-count')) {
+      leaf.classList.add('gv-nav-native-count');
+    }
+  }
+
+  /* ================= UNREAD PROMOTION (v3.3) =================
+     Built from Westin's REAL rail DOM (captured 2026-10-22):
+     nav#novation-left-rail holds ul > li > button per folder tab;
+     the "..." control is button#left-rail-more-menu and its popup
+     (ul#left-rail-more-menu-item-list) renders INSIDE the rail's
+     last li. Menu items are li[role="menuitem"] with no href -
+     React-owned nodes. So v3.3 never moves Yahoo's nodes and
+     never searches or clicks anything outside the rail:
+     - the rail tab is a sanitized clone of Yahoo's own Inbox li
+       (their structure/classes = their exact look), re-glyphed
+       with Yahoo's own Unread path data, relabelled, count-free
+       (the number lives on the Inbox icon only);
+     - activation clicks Yahoo's real controls by stable id: the
+       Unread menu item when the popup is open, otherwise the
+       More button first and the item the moment the popup
+       appears. No URL is ever guessed or navigated to.        */
+  const UNREAD_GLYPH_PATHS = [
+    'M22 7.217a2.609 2.609 0 1 1-5.217 0 2.609 2.609 0 0 1 5.217 0',
+    'M2 4.7v14.5h18v-7.244a4.8 4.8 0 0 1-1.8-.096v5.54H3.8V9.773L11 13.7l5.462-2.979a4.8 4.8 0 0 1-1.22-1.385L11 11.65 3.8 7.723V6.5h10.859a4.7 4.7 0 0 1 .683-1.8z',
+  ];
+  let placedTab = null;
+  let unreadInsertTimes = [];
+  let unreadLatchedOff = false;
+
+  function sweepPlaced() {
+    if (placedTab && !document.contains(placedTab)) placedTab = null;
+    document.querySelectorAll('[data-gv-unread-tab]').forEach((t) => {
+      if (t !== placedTab) t.remove();
+    });
+    // Legacy tabs from v3.1/v3.2 (bare placeholder / "transplant").
+    document.querySelectorAll(
+      '.gv-rail-unread, .gv-their-unread').forEach((t) => {
+        if (t !== placedTab) t.remove();
+      });
+  }
+
+  function clickUnreadMenuItem() {
+    const list = document.getElementById(
+      'left-rail-more-menu-item-list');
+    if (!list) return false;
+    const items = list.querySelectorAll('[role="menuitem"]');
+    for (const it of items) {
+      // The row's text is "Unread" + its count leaf with no space
+      // ("Unread1") - a word boundary after "Unread" never comes.
+      if (/^unread(?![a-z])/i.test((it.textContent || '').trim())) {
+        it.click();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function activateUnread() {
+    if (clickUnreadMenuItem()) return;
+    const rail = document.getElementById('novation-left-rail');
+    if (!rail) return;
+    const more = rail.querySelector(
+      '#left-rail-more-menu, ' +
+      'button[aria-controls="left-rail-more-menu-item-list"]');
+    if (!more) return;
+    more.click();
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries++;
+      if (clickUnreadMenuItem() || tries >= 40) {
+        clearInterval(timer);
+      }
+    }, 50);
+  }
+
+  function buildUnreadTab(inboxRow) {
+    const clone = inboxRow.cloneNode(true);
+    const strip = (el) => {
+      el.removeAttribute('id');
+      el.removeAttribute('data-test-id');
+      el.removeAttribute('data-folder-id');
+      el.removeAttribute('data-iskeynav');
+      el.removeAttribute('aria-description');
+      el.removeAttribute('title');
+      if (el.classList) {
+        el.classList.remove('gv-of-visible', 'gv-nav-has-unread',
+          'gv-badge-host');
+      }
+    };
+    strip(clone);
+    clone.querySelectorAll('*').forEach(strip);
+    clone.querySelectorAll('.gv-nav-badge').forEach((b) => b.remove());
+    const btn = clone.querySelector('button, a') || clone;
+    btn.setAttribute('aria-label', 'Unread');
+    btn.setAttribute('tabindex', '-1');
+    // Yahoo renders TWO svgs on the active tab (selected-state and
+    // default). Keep exactly one - the default-state one - and
+    // give it Yahoo's own Unread glyph paths, verbatim.
+    const svgs = Array.from(btn.querySelectorAll('svg'));
+    svgs.forEach((svg, i) => {
+      if (i < svgs.length - 1) svg.remove();
+    });
+    const glyph = svgs[svgs.length - 1];
+    if (glyph) {
+      glyph.innerHTML = UNREAD_GLYPH_PATHS
+        .map((d) => '<path d="' + d + '"></path>').join('');
+    }
+    // The label leaf is the only text in a folder tab.
+    clone.querySelectorAll('div, span').forEach((el) => {
+      if (!el.children.length &&
+          /^inbox$/i.test((el.textContent || '').trim())) {
+        el.textContent = 'Unread';
+      }
+    });
+    clone.setAttribute('data-gv-unread-tab', 'clone');
+    clone.setAttribute('aria-label', 'Unread');
+    clone.classList.add('gv-unread-tab');
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      activateUnread();
+    }, true);
+    return clone;
+  }
+
+  function syncUnreadPromotion() {
+    if (!CONFIG.promoteUnread) return;
+    repairRailDamage();
+    if (navIsExpanded()) {
+      if (placedTab) { placedTab.remove(); placedTab = null; }
+      sweepPlaced();
+      return;
+    }
+    const inboxItem = findInboxNavItem();
+    const inboxRow = inboxItem
+      ? (navRowOf(inboxItem) || inboxItem) : null;
+    sweepPlaced();
+    if (!inboxRow || !inboxRow.parentElement) return;
+    // The clone strategy needs the real li row; on any other
+    // layout, skip rather than guess (v3.1-v3.2 guessed, and the
+    // guesses are what kept breaking on the real rail).
+    if (inboxRow.tagName !== 'LI') return;
+    if (!placedTab) {
+      if (unreadLatchedOff) return;
+      const now = Date.now();
+      unreadInsertTimes = unreadInsertTimes.filter((t) => now - t < 10000);
+      if (unreadInsertTimes.length >= 3) {
+        unreadLatchedOff = true;
+        return;
+      }
+      unreadInsertTimes.push(now);
+      placedTab = buildUnreadTab(inboxRow);
+      inboxRow.parentElement.insertBefore(
+        placedTab, inboxRow.nextSibling);
+      sweepPlaced();
+    }
+    const active = /unread/i.test(
+      window.location.pathname + window.location.search);
+    if (placedTab.classList.contains('gv-unread-tab-active') !== active) {
+      placedTab.classList.toggle('gv-unread-tab-active', active);
+    }
+  }
+
   /* ============================== TAGGING ============================== */
   function addBadge(row) {
     if (row.querySelector('.gv-badge')) return;
@@ -477,6 +1167,39 @@
     if (!parked) row.appendChild(badge);
   }
 
+  // Folder-chip rescue (v3.4.1): find elements inside an unread
+  // row that Yahoo paints as a dark pill carrying short text (the
+  // folder tag), and tag them .gv-row-chip so the CSS above can
+  // restore their light letters. Detection uses the element's own
+  // COMPUTED background (opaque and dark) plus a short text payload
+  // - it never keys off Yahoo's hashed class names, and it skips
+  // our own UNREAD pill (already correctly coloured).
+  function tagRowChips(row) {
+    // Re-validate chips tagged in a previous life of this recycled
+    // row node: if the background is no longer dark, untag.
+    for (const el of row.querySelectorAll('.gv-row-chip')) {
+      if (!isDarkPill(el)) el.classList.remove('gv-row-chip');
+    }
+    for (const el of row.querySelectorAll('div, span')) {
+      if (el.classList.contains('gv-badge')) continue;
+      if (el.classList.contains('gv-row-chip')) continue;
+      if (el.closest('.gv-row-chip')) continue;
+      const text = (el.textContent || '').trim();
+      if (!text || text.length > 24) continue;
+      if (isDarkPill(el)) el.classList.add('gv-row-chip');
+    }
+  }
+  function isDarkPill(el) {
+    const m = getComputedStyle(el).backgroundColor
+      .match(/rgba?\(([^)]+)\)/);
+    if (!m) return false;
+    const parts = m[1].split(',').map((x) => parseFloat(x));
+    const alpha = parts.length > 3 ? parts[3] : 1;
+    if (alpha < 0.5) return false;
+    const lum = (0.2126 * parts[0] + 0.7152 * parts[1] +
+                 0.0722 * parts[2]) / 255;
+    return lum < 0.4;
+  }
   function tagRows() {
     const rows = findRows();
     if (CONFIG.hideSponsoredRows) tagAdRows(rows);
@@ -498,19 +1221,32 @@
         row.classList.add('gv-unread');
         row.classList.remove('gv-read');
         addBadge(row);
+        tagRowChips(row);
       } else {
         row.classList.add('gv-read');
         row.classList.remove('gv-unread');
         const b = row.querySelector('.gv-badge');
         if (b) b.remove();
+        for (const el of row.querySelectorAll('.gv-row-chip')) {
+          el.classList.remove('gv-row-chip');
+        }
       }
     }
   }
 
   function tagAdsAndRail() {
+    // Named ad slots wherever they appear (Inbox, Drafts, Sent...):
+    // leaderboard banners, Taboola, GPT slots, the old right rail.
+    document.querySelectorAll(
+      '[data-test-id="leaderboard-ad"], [data-test-id*="leaderboard" i],' +
+      '[data-test-id="mail-right-rail"], [id*="taboola" i],' +
+      '[data-test-id*="taboola" i], div[id^="gpt-"], div[id*="-gpt-" i]'
+    ).forEach((el) => el.classList.add('gv-ad'));
     document.querySelectorAll(
       'iframe[src*="doubleclick" i], iframe[src*="googlesyndication" i],' +
-      'iframe[src*="amazon-adsystem" i], [aria-label="Advertisement" i]'
+      'iframe[src*="amazon-adsystem" i], iframe[src*="criteo" i],' +
+      'iframe[src*="adsrvr" i], iframe[src*="pubmatic" i],' +
+      'iframe[src*="smartadserver" i], [aria-label="Advertisement" i]'
     ).forEach((el) => {
       let host = el;
       for (let i = 0; i < 3 && host.parentElement; i++) {
@@ -552,6 +1288,61 @@
         host.classList.add('gv-upsell');
         break;
       }
+    }
+  }
+
+  /* ================= UPSELL CLEANUP (v3.2.0) =================
+     Westin's "Emails to Myself" screenshot: the view is a Mail
+     Plus sales pitch ("Talked to yourself lately?... Try Mail
+     Plus") and the header carries a "Go ad-free" button. Hiding
+     the pitch is cosmetic and safe; UNLOCKING is not something a
+     script can do - Yahoo checks the account's Plus entitlement
+     on their servers before serving the feature, so this section
+     only removes buttons, menu entries and paywall cards. */
+  function hideUpsells() {
+    if (!CONFIG.hideUpsells) return;
+    document.querySelectorAll(
+      'a, button, [role="button"], [role="link"]').forEach((el) => {
+      if (el.classList.contains('gv-upsell')) return;
+      const t = ((el.getAttribute('aria-label') || '') + ' ' +
+                 (el.textContent || '')).trim();
+      if (/^(go ad-free|try mail plus|get mail plus|get yahoo mail plus|upgrade to mail plus|try yahoo mail plus)\b/i.test(t) &&
+          t.length <= 44) {
+        el.classList.add('gv-upsell');
+      }
+    });
+    document.querySelectorAll(
+      '[data-test-id*="upsell" i], [data-test-id*="mail-plus" i],' +
+      '[data-test-id*="go-ad-free" i]').forEach((el) => {
+      el.classList.add('gv-upsell');
+    });
+    // "Yahoo Mail Plus" entry in menus/popovers: hide its row.
+    const pools = document.querySelectorAll(
+      '[role="menu"], [role="dialog"], [data-test-id*="menu" i], ' +
+      '[data-test-id*="popover" i]');
+    pools.forEach((scope) => {
+      scope.querySelectorAll('a, button, li, div').forEach((el) => {
+        if ((el.textContent || '').trim() === 'Yahoo Mail Plus') {
+          // Hide the whole menu row (the li), not just the label.
+          (el.closest('li, [role="menuitem"]') || el)
+            .classList.add('gv-upsell');
+        }
+      });
+    });
+    // Paywall empty-state card ("...only available to Mail Plus
+    // subscribers"): hide the whole pitch block, button included.
+    for (const el of document.querySelectorAll('div, section')) {
+      const t = el.textContent || '';
+      if (!/only available to (yahoo )?mail plus subscribers/i.test(t)) continue;
+      if (t.length > 700) continue;
+      let host = el;
+      for (let i = 0; i < 4 && host.parentElement; i++) {
+        const pt = host.parentElement.textContent || '';
+        if (pt.length <= t.length + 60 && pt.length < 900) host = host.parentElement;
+        else break;
+      }
+      host.classList.add('gv-upsell');
+      break;
     }
   }
 
@@ -625,10 +1416,11 @@
   style.textContent = CSS;
   document.documentElement.appendChild(style);
   if (CONFIG.hideRightRail) document.documentElement.classList.add('gv-hide-rail');
+  if (CONFIG.modernExpandedNav) document.documentElement.classList.add('gv-modern-expanded');
   if (CONFIG.darkMethod === 'ring') document.documentElement.classList.add('gv-ring');
 
   let queued = false;
-  function run() { queued = false; detectDark(); hideBadgeAdRows(); tagRows(); tagAdsAndRail(); }
+  function run() { queued = false; detectDark(); hideBadgeAdRows(); tagRows(); tagAdsAndRail(); hideUpsells(); syncInboxBadge(); syncUnreadPromotion(); }
   function schedule() {
     if (queued) return;
     queued = true;
@@ -637,6 +1429,9 @@
 
   document.addEventListener('DOMContentLoaded', schedule);
   window.addEventListener('load', schedule);
+  // Injected after both events already fired (late Tampermonkey
+  // injection): run now instead of waiting for the 4s tick.
+  if (document.readyState !== 'loading') schedule();
   if (CONFIG.observeChanges) {
     const startObserver = () => {
       new MutationObserver(schedule).observe(document.documentElement, {

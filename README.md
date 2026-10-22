@@ -3,6 +3,8 @@
 A small browser add-on script that makes Yahoo Mail easy to read again:
 
 - **Unread mail is unmistakable.** In light mode, unread rows get a light purple tint, a purple bar on the left edge, bold text, and an UNREAD label. In dark mode, unread rows become a pale strip with dark text, while read rows stay normal dark. No more squinting at bold-vs-not-quite-bold.
+- **The Inbox icon keeps count.** A small purple badge on the Inbox icon in the left folder list shows exactly how many unread emails are waiting (it caps at "99+" so it never gets wide, and disappears completely when the inbox is caught up). The number is Yahoo's own inbox total — the same count Yahoo puts in the browser tab title — never a count of just the messages on screen.
+- **Unread lives in the main rail now.** Yahoo buries the Unread view inside the "•••" (More) menu at the bottom of the left icon rail. The fix moves it up: there is now an **Unread** tab in the main rail, right under Inbox, one click away. It carries no number of its own — the count stays on the Inbox icon — and the old entry inside the "•••" menu is gone, since it has been moved rather than copied.
 - **Read mail looks finished.** Muted background and normal weight, so your eye skips right past it.
 - **Ads are gone.** The ad panel on the right, the sponsored rows mixed into the inbox, and the storage upsell banner are hidden, and the message list uses the full width. No empty gaps left behind.
 
