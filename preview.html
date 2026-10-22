@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Yahoo Mail Classic Fix - Preview</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;margin:24px;background:#e5e5e5;color:#111}
+  h2{margin:28px 0 8px;font-size:17px}
+  p.note{color:#444;max-width:900px;font-size:13px;line-height:1.5}
+  .list{max-width:900px;border:1px solid #ccc;border-radius:6px;overflow:hidden;background:#fff}
+  .row{display:flex;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid #d4d4d8;font-size:13px}
+  .who{width:150px;flex:none;white-space:nowrap;overflow:hidden}
+  .subj{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .when{width:64px;flex:none;text-align:right}
+  /* BEFORE (stock new Yahoo, light) */
+  .before .unread{font-weight:700}
+  .before .dot{color:#6001d2}
+  /* AFTER light - gv classes */
+  .gv-unread{background:#e9e2ff;box-shadow:inset 5px 0 0 #6001d2;font-weight:700;color:#0f0f14}
+  .gv-read{background:#eceff3;color:#5f6368;font-weight:400}
+  .gv-badge{background:#6001d2;color:#fff;font:700 9px Arial;padding:3px 5px;border-radius:3px;letter-spacing:.06em}
+  /* AFTER dark */
+  .darkwrap{background:#18181b;padding:12px;max-width:924px;border-radius:6px}
+  .darkwrap .list{background:#27272a;border-color:#3f3f46}
+  .darkwrap .row{border-bottom-color:#3f3f46}
+  .darkwrap .gv-unread{background:#dbd4f0;box-shadow:inset 5px 0 0 #6001d2;color:#211b36}
+  .darkwrap .gv-read{background:transparent;color:#e4e4e9}
+  .darkwrap .gv-badge{background:#6001d2;color:#ffffff}
+  .darkwrap .before .row{color:#eee}
+  .ad{background:#000;color:#fff;text-align:center;padding:26px;font-weight:700}
+</style>
+</head>
+<body>
+<h1 style="font-size:20px">Yahoo Mail Classic Fix — preview (fake senders, your real CSS)</h1>
+<p class="note">Unread gets <b>three</b> signals, not one: whole-row background tint, a 5px Yahoo-purple bar on the left edge, and bold text — plus an UNREAD pill in the script version. Read mail goes grey and flat. That works at a glance, and it works in dark mode where bold-white-on-white does not. The black ad boxes on the right of your screenshot are hidden and the list takes the full width.</p>
+
+<h2>Before — stock new Yahoo (light)</h2>
+<div class="list before">
+  <div class="row unread"><span class="dot">●</span><span class="who">Supplier Co</span><span class="subj">Order confirmation for Order# 12345</span><span class="when">8:12 AM</span></div>
+  <div class="row"><span>○</span><span class="who">Parts Vendor</span><span class="subj">Your invoice is ready · View and pay online</span><span class="when">Oct 21</span></div>
+  <div class="row unread"><span class="dot">●</span><span class="who">A Customer</span><span class="subj">RE: Install — any updates on this job?</span><span class="when">7:36 AM</span></div>
+  <div class="row"><span>○</span><span class="who">Newsletter</span><span class="subj">New additions are coming this fall</span><span class="when">Oct 21</span></div>
+</div>
+
+<h2>After — with the fix (light)</h2>
+<div class="list">
+  <div class="row gv-unread"><span style="color:#6001d2">●</span><span class="who">Supplier Co</span><span class="subj">Order confirmation for Order# 12345</span><span class="gv-badge">UNREAD</span><span class="when">8:12 AM</span></div>
+  <div class="row gv-read"><span>○</span><span class="who">Parts Vendor</span><span class="subj">Your invoice is ready · View and pay online</span><span class="when">Oct 21</span></div>
+  <div class="row gv-unread"><span style="color:#6001d2">●</span><span class="who">A Customer</span><span class="subj">RE: Install — any updates on this job?</span><span class="gv-badge">UNREAD</span><span class="when">7:36 AM</span></div>
+  <div class="row gv-read"><span>○</span><span class="who">Newsletter</span><span class="subj">New additions are coming this fall</span><span class="when">Oct 21</span></div>
+</div>
+
+<h2>After — with the fix (dark, v3 method: pale strip = unread, normal dark row = read)</h2>
+<div class="darkwrap"><div class="list">
+  <div class="row gv-unread"><span style="color:#6001d2">●</span><span class="who">Supplier Co</span><span class="subj">Order confirmation for Order# 12345</span><span class="gv-badge">UNREAD</span><span class="when">8:12 AM</span></div>
+  <div class="row gv-read"><span>○</span><span class="who">Parts Vendor</span><span class="subj">Your invoice is ready · View and pay online</span><span class="when">Oct 21</span></div>
+  <div class="row gv-unread"><span style="color:#6001d2">●</span><span class="who">A Customer</span><span class="subj">RE: Install — any updates on this job?</span><span class="gv-badge">UNREAD</span><span class="when">7:36 AM</span></div>
+  <div class="row gv-read"><span>○</span><span class="who">Newsletter</span><span class="subj">New additions are coming this fall</span><span class="when">Oct 21</span></div>
+</div></div>
+
+<h2>Ads</h2>
+<p class="note">This is what sits in your right rail right now (from your screenshot):</p>
+<div class="list"><div class="ad">yahoo! finance — Invest / Explore now →</div></div>
+<p class="note"><b>With the fix: that panel is gone entirely</b>, the sponsored “Ad” row at the top of the list is gone, and the storage-limit upsell strip above the list is gone. The message list stretches to full width.</p>
+</body>
+</html>
