@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Yahoo Mail Classic Fix - Unread You Can Actually See + No Ads
 // @namespace    grandvalley.yahoomailfix
-// @version      3.4.1
+// @version      3.4.2
 // @description  Makes unread mail unmistakable (whole-row tint + purple left bar + bold, in light AND dark mode), mutes read mail, hides ads including sponsored rows inside the list, puts a clean unread-count badge on the Inbox nav icon, and brings back the old Yahoo Mail Classic list feel. Works on mail.yahoo.com.
 // @author       Gus for Westin
 // @match        https://mail.yahoo.com/*
@@ -293,6 +293,22 @@
      the pill while the pill keeps Yahoo's own dark background. */
   .gv-unread .gv-row-chip,
   .gv-unread .gv-row-chip * { color: #ffffff !important; }
+
+  /* HOVER ACTION BAR inside an unread row (v3.4.2): on hover Yahoo
+     renders the row's floating action bar (archive / star / delete /
+     mail / more) INTO the row - a dark pill whose icons are drawn
+     with fill:currentColor. The strip's forced dark text therefore
+     recoloured the icons dark-plum on black: invisible (Westin live
+     report 2026-10-22; the bar is the element the row's own
+     aria-labelledby references as email-message-actions-<id>).
+     Restore white icons. DARK THEME ONLY: in light mode Yahoo's bar
+     is light and the strip's dark text is already correct there.
+     tagRowChips() also tags such bars .gv-row-chip as a generic
+     safety net (dark pill + several svg icons + no text). */
+  html.gv-dark .gv-unread [id^="email-message-actions"],
+  html.gv-dark .gv-unread [id^="email-message-actions"] * {
+    color: #ffffff !important;
+  }
 
   /* INBOX NAV BADGE (v3.1) - the unread count, on the Inbox icon in
      the left folder nav. Design notes: Yahoo purple is the brand
@@ -1186,6 +1202,20 @@
       if (el.closest('.gv-row-chip')) continue;
       const text = (el.textContent || '').trim();
       if (!text || text.length > 24) continue;
+      if (isDarkPill(el)) el.classList.add('gv-row-chip');
+    }
+    // Icon-bar pass (v3.4.2): the hover action bar carries no text
+    // (icon buttons only), so the text pass above cannot see it.
+    // Fingerprint: dark opaque background + at least two svg icons
+    // + no text anywhere inside. Nothing else in a row matches that
+    // (the avatar wrapper is transparent; the date cell has one svg
+    // and text; the folder chip has text and no svg).
+    for (const el of row.querySelectorAll('div, span')) {
+      if (el.classList.contains('gv-badge')) continue;
+      if (el.classList.contains('gv-row-chip')) continue;
+      if (el.closest('.gv-row-chip')) continue;
+      if ((el.textContent || '').trim().length > 0) continue;
+      if (el.querySelectorAll('svg').length < 2) continue;
       if (isDarkPill(el)) el.classList.add('gv-row-chip');
     }
   }
