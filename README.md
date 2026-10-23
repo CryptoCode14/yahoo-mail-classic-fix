@@ -1,12 +1,18 @@
 # Yahoo Mail Classic Fix
 
-A small browser add-on script that makes Yahoo Mail easy to read again:
+I built this because Yahoo Mail makes unread messages almost impossible to spot. Read and unread look nearly identical, the few cues that exist are subtle, and people miss mail because of it. I originally made this for a family member who relies on Yahoo Mail every day and dislikes interface changes — it keeps Yahoo looking like Yahoo, just readable.
 
-- **Unread mail is unmistakable.** In light mode, unread rows get a light purple tint, a purple bar on the left edge, bold text, and an UNREAD label. In dark mode, unread rows become a pale strip with dark text, while read rows stay normal dark. No more squinting at bold-vs-not-quite-bold.
-- **The Inbox icon keeps count.** A small purple badge on the Inbox icon in the left folder list shows exactly how many unread emails are waiting (it caps at "99+" so it never gets wide, and disappears completely when the inbox is caught up). The number is Yahoo's own inbox total — the same count Yahoo puts in the browser tab title — never a count of just the messages on screen.
-- **Unread lives in the main rail now.** Yahoo buries the Unread view inside the "•••" (More) menu at the bottom of the left icon rail. The fix moves it up: there is now an **Unread** tab in the main rail, right under Inbox, one click away. It carries no number of its own — the count stays on the Inbox icon — and the old entry inside the "•••" menu is gone, since it has been moved rather than copied.
-- **Read mail looks finished.** Muted background and normal weight, so your eye skips right past it.
-- **Ads are gone.** The ad panel on the right, the sponsored rows mixed into the inbox, and the storage upsell banner are hidden, and the message list uses the full width. No empty gaps left behind.
+It's a Tampermonkey userscript. It changes how Yahoo Mail looks and behaves in your browser; it never reads, sends, moves, or deletes your mail, and everything it stores stays in your browser.
+
+## What it does
+
+- **Unread mail you can actually see.** Unread messages stand out with a tinted row, a colored edge bar, bold text, and an UNREAD pill, in both light and dark mode. Read mail stays muted, so your eye skips past it.
+- **An Unread Style page inside Yahoo's own Settings.** Open Yahoo Settings (the gear) and there's an extra item in the settings sidebar: **Unread style**. It offers 12 built-in treatments — modeled on how Outlook, Gmail, and Yahoo itself handle unread mail — plus a fully custom mode, all with a live preview. Changes apply instantly and save on your computer.
+- **A global accent color.** One picker recolors all of Yahoo's purple — buttons, icons, hovers, badges, Yahoo's own chrome included — in both themes. Identity colors (sender avatars, mailbox avatars) are never touched, and one click restores Yahoo purple.
+- **Emails to Myself, without Mail Plus.** Yahoo locks its Emails to Myself tab behind the paid Mail Plus tier. This script takes the tab over and instead runs a Yahoo search for mail from and to your own address — the same list, no subscription. (Actual Mail Plus features can't be unlocked by any script; entitlement is checked on Yahoo's servers. This replaces the one feature with a search that does the same job.)
+- **An unread count where you can see it.** A badge on the Inbox icon shows Yahoo's own unread total, capped at 99+ and gone when you're caught up. The Unread view is also promoted into the main folder rail instead of hiding in the ••• menu, with no number of its own — the count lives on Inbox.
+- **No ads, no upsells.** Ad panels, sponsored rows in the list, and Mail Plus pitch cards are hidden, and the message list uses the full width.
+- **A cleaner folder rail.** A modern skin for the expanded folder list, designed separately for dark and light mode, with the light version following your accent color.
 
 ## Install (one time, about 2 minutes)
 
@@ -19,18 +25,28 @@ A small browser add-on script that makes Yahoo Mail easy to read again:
 
 Want to see it before installing? Open `preview.html` in this repo — it shows light and dark before/after with made-up example emails.
 
+## Using it
+
+- **Change styles:** Yahoo's gear icon → **Unread style** in the settings sidebar.
+- **Emails to Myself:** open the **Sent** folder and click the **Emails to Myself** tab. The script detects your email address automatically; if it's ever wrong, you can type it under Settings → Unread style → Emails to Myself.
+- **Everything is optional and reversible.** Reset the accent with the "Yahoo purple" button; turn the script off any time from the Tampermonkey icon.
+
 ## Updates
 
-You do not need to reinstall anything when the script is improved. Westin publishes new versions to this page, and Tampermonkey checks here for updates on its own. If Tampermonkey shows a notice that an update is available, click **Update** and reload Yahoo Mail.
+You don't need to reinstall anything. Tampermonkey checks this page for updates on its own; when one is available, accept it and reload Yahoo Mail.
 
-(One setting makes updates fully hands-off: Tampermonkey icon → Dashboard → Settings → under "Script Updates", set "Check Interval" to Daily and check "Auto update scripts". Optional — the update prompt works fine without it.)
+One setting makes updates fully hands-off: Tampermonkey icon → Dashboard → Settings → under "Script Updates", set "Check Interval" to Daily and check "Auto update scripts". Optional — the update prompt works fine without it.
+
+## Privacy
+
+The script runs entirely in your browser and makes no network requests of its own. Your style settings live in your browser's local storage. Nothing is collected or sent anywhere.
 
 ## If something looks wrong
 
-Tell Westin what you see (a screenshot helps). Known quirks:
+Open an issue with a screenshot. Known quirks:
 
-- Yahoo occasionally changes its page layout, which can break a cosmetic fix like this until the script is updated.
-- The fix only changes how mail *looks*. It never reads, sends, moves, or deletes any mail.
+- Yahoo occasionally changes its page layout, which can break a cosmetic script like this until it's updated.
+- The script only changes how mail *looks* and how a few buttons behave. Your mail itself is untouched.
 
 ## Turning it off
 
